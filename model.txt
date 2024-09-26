@@ -1,106 +1,119 @@
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
-from tensorflow.keras.optimizers import Adamax
-from tensorflow.keras import regularizers
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import numpy as np
 import os
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
+import cv2
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from sklearn.metrics import confusion_matrix
+from tensorflow.keras.applications.vgg16 import VGG16
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Dense, Flatten, Dropout
 
-# Function to split data into training, validation, and test sets
-def split_data(data_dir):
-    datagen = ImageDataGenerator(validation_split=0.2)  # 80% train, 20% validation
-    train_gen = datagen.flow_from_directory(data_dir, target_size=(224, 224), batch_size=40, subset='training')
-    valid_gen = datagen.flow_from_directory(data_dir, target_size=(224, 224), batch_size=40, subset='validation')
-    
-    # Use validation data for testing as well, as you might not have separate test data
-    test_gen = valid_gen
-    return train_gen, valid_gen, test_gen
+# Path to the dataset
+dataset_path = 'dataset/'
 
-# Custom Callback class (optional, replace with actual implementation)
-class MyCallback(tf.keras.callbacks.Callback):
-    def __init__(self, patience, stop_patience, threshold, factor, batches, epochs, ask_epoch):
-        super(MyCallback, self).__init__()
-        self.patience = patience
-        self.stop_patience = stop_patience
-        self.threshold = threshold
-        self.factor = factor
-        self.batches = batches
-        self.epochs = epochs
-        self.ask_epoch = ask_epoch
+# Initialize lists to store images and labels
+images = []
+labels = []
 
-    def on_epoch_end(self, epoch, logs=None):
-        # Custom logic after each epoch (optional)
-        pass
+# Load images and labels from each class directory
+for label in os.listdir(dataset_path):
+    class_path = os.path.join(dataset_path, label)
+    for image_name in os.listdir(class_path):
+        image_path = os.path.join(class_path, image_name)
+        image = cv2.imread(image_path)
+        if image is not None:
+            image = cv2.resize(image, (224, 224))  # Resize images to 224x224
+            images.append(image)
+            labels.append(label)
 
-# Function to build and train the model
-def train_model(data_dir, model_save_path='eye_disease_model.h5'):
-    try:
-        # Get split data
-        train_gen, valid_gen, test_gen = split_data(data_dir)
-    except Exception as e:
-        print(f'Error in data processing: {e}')
-        return None, None, None, None  # Ensure the function returns something even on error
+# Convert lists to arrays
+images = np.array(images)
+labels = np.array(labels)
 
-    # Create Model Structure
-    img_size = (224, 224)
-    channels = 3
-    img_shape = (img_size[0], img_size[1], channels)
-    class_count = len(train_gen.class_indices)  # Define number of classes in the dense layer
+# Encode labels to integers
+label_encoder = LabelEncoder()
+labels = label_encoder.fit_transform(labels)
+labels = to_categorical(labels)  # Convert to one-hot encoding
 
-    # Create pre-trained model (using EfficientNetB3)
-    base_model = tf.keras.applications.efficientnet.EfficientNetB3(
-        include_top=False, weights="imagenet", input_shape=img_shape, pooling='max'
-    )
+# Shuffle the data
+images, labels = shuffle(images, labels, random_state=42)
 
-    model = Sequential([
-        base_model,
-        BatchNormalization(axis=-1, momentum=0.99, epsilon=0.001),
-        Dense(256, kernel_regularizer=regularizers.l2(0.016), activity_regularizer=regularizers.l1(0.006),
-              bias_regularizer=regularizers.l1(0.006), activation='relu'),
-        Dropout(rate=0.45, seed=123),
-        Dense(class_count, activation='softmax')
-    ])
+# Split data into training, validation, and test sets
+X_train, X_temp, y_train, y_temp = train_test_split(images, labels, test_size=0.3, random_state=42)
+X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
 
-    model.compile(Adamax(learning_rate=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
-    model.summary()
+# Normalize the pixel values to [0, 1]
+X_train = X_train / 255.0
+X_val = X_val / 255.0
+X_test = X_test / 255.0
 
-    # Define training parameters
-    batch_size = 40
-    epochs = 40
-    patience = 1
-    stop_patience = 3
-    threshold = 0.9
-    factor = 0.5
-    ask_epoch = 5
-    batches = int(np.ceil(train_gen.samples / batch_size))
+# Load the VGG16 model without the top layer (include_top=False)
+base_model = VGG16(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
 
-    callbacks = [MyCallback(patience=patience, stop_patience=stop_patience, threshold=threshold,
-                            factor=factor, batches=batches, epochs=epochs, ask_epoch=ask_epoch)]
+# Add custom layers on top of the base model
+x = base_model.output
+x = Flatten()(x)
+x = Dense(2048, activation='relu')(x)
+x = Dropout(0.5)(x)
+predictions = Dense(len(label_encoder.classes_), activation='softmax')(x)
 
-    history = model.fit(x=train_gen, epochs=epochs, verbose=1, callbacks=callbacks,
-                        validation_data=valid_gen, validation_steps=None, shuffle=False)
+# Create the final model
+model = Model(inputs=base_model.input, outputs=predictions)
 
-    # Save the trained model
-    model.save(model_save_path)
+# Freeze the base model layers
+for layer in base_model.layers:
+    layer.trainable = False
 
-    # Evaluate the model
-    test_steps = np.ceil(test_gen.samples / batch_size)
+# Compile the model
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-    train_score = model.evaluate(train_gen, steps=test_steps, verbose=1)
-    valid_score = model.evaluate(valid_gen, steps=test_steps, verbose=1)
-    test_score = model.evaluate(test_gen, steps=test_steps, verbose=1)
+# Data augmentation
+datagen = ImageDataGenerator(
+    rotation_range=20,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True,
+    fill_mode='nearest'
+)
 
-    print("Train Loss: ", train_score[0])
-    print("Train Accuracy: ", train_score[1])
-    print('-' * 20)
-    print("Validation Loss: ", valid_score[0])
-    print("Validation Accuracy: ", valid_score[1])
-    print('-' * 20)
-    print("Test Loss: ", test_score[0])
-    print("Test Accuracy: ", test_score[1])
+# Train the model
+history = model.fit(
+    datagen.flow(X_train, y_train, batch_size=64),
+    epochs=10,
+    validation_data=(X_val, y_val)
+)
 
-    return model, train_gen, valid_gen, test_gen
+# Save the model
+model.save('eye_disease_vgg16_model.h5')  # Save the entire model to a file
 
-# Call the training function and save the model
-model, train_gen, valid_gen, test_gen = train_model('/kaggle/input/eye-diseases-classification/dataset')
+# Evaluate the model on the test set
+test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
+print(f'Test accuracy: {test_accuracy * 100:.2f}%')
+
+# Confusion matrix and classification report
+y_pred = model.predict(X_test)
+y_pred_classes = np.argmax(y_pred, axis=1)
+y_true = np.argmax(y_test, axis=1)
+
+conf_matrix = confusion_matrix(y_true, y_pred_classes)
+print('Confusion Matrix')
+print(conf_matrix)
+
+# Plot confusion matrix
+plt.figure(figsize=(10, 8))
+plt.imshow(conf_matrix, interpolation='nearest', cmap=plt.cm.Blues)
+plt.title('Confusion Matrix')
+plt.colorbar()
+tick_marks = np.arange(len(label_encoder.classes_))
+plt.xticks(tick_marks, label_encoder.classes_, rotation=45)
+plt.yticks(tick_marks, label_encoder.classes_)
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.tight_layout()
+plt.show()
