@@ -1,0 +1,106 @@
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+from tensorflow.keras.optimizers import Adamax
+from tensorflow.keras import regularizers
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+import numpy as np
+import os
+
+# Function to split data into training, validation, and test sets
+def split_data(data_dir):
+    datagen = ImageDataGenerator(validation_split=0.2)  # 80% train, 20% validation
+    train_gen = datagen.flow_from_directory(data_dir, target_size=(224, 224), batch_size=40, subset='training')
+    valid_gen = datagen.flow_from_directory(data_dir, target_size=(224, 224), batch_size=40, subset='validation')
+    
+    # Use validation data for testing as well, as you might not have separate test data
+    test_gen = valid_gen
+    return train_gen, valid_gen, test_gen
+
+# Custom Callback class (optional, replace with actual implementation)
+class MyCallback(tf.keras.callbacks.Callback):
+    def __init__(self, patience, stop_patience, threshold, factor, batches, epochs, ask_epoch):
+        super(MyCallback, self).__init__()
+        self.patience = patience
+        self.stop_patience = stop_patience
+        self.threshold = threshold
+        self.factor = factor
+        self.batches = batches
+        self.epochs = epochs
+        self.ask_epoch = ask_epoch
+
+    def on_epoch_end(self, epoch, logs=None):
+        # Custom logic after each epoch (optional)
+        pass
+
+# Function to build and train the model
+def train_model(data_dir, model_save_path='eye_disease_model.h5'):
+    try:
+        # Get split data
+        train_gen, valid_gen, test_gen = split_data(data_dir)
+    except Exception as e:
+        print(f'Error in data processing: {e}')
+        return None, None, None, None  # Ensure the function returns something even on error
+
+    # Create Model Structure
+    img_size = (224, 224)
+    channels = 3
+    img_shape = (img_size[0], img_size[1], channels)
+    class_count = len(train_gen.class_indices)  # Define number of classes in the dense layer
+
+    # Create pre-trained model (using EfficientNetB3)
+    base_model = tf.keras.applications.efficientnet.EfficientNetB3(
+        include_top=False, weights="imagenet", input_shape=img_shape, pooling='max'
+    )
+
+    model = Sequential([
+        base_model,
+        BatchNormalization(axis=-1, momentum=0.99, epsilon=0.001),
+        Dense(256, kernel_regularizer=regularizers.l2(0.016), activity_regularizer=regularizers.l1(0.006),
+              bias_regularizer=regularizers.l1(0.006), activation='relu'),
+        Dropout(rate=0.45, seed=123),
+        Dense(class_count, activation='softmax')
+    ])
+
+    model.compile(Adamax(learning_rate=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
+    model.summary()
+
+    # Define training parameters
+    batch_size = 40
+    epochs = 40
+    patience = 1
+    stop_patience = 3
+    threshold = 0.9
+    factor = 0.5
+    ask_epoch = 5
+    batches = int(np.ceil(train_gen.samples / batch_size))
+
+    callbacks = [MyCallback(patience=patience, stop_patience=stop_patience, threshold=threshold,
+                            factor=factor, batches=batches, epochs=epochs, ask_epoch=ask_epoch)]
+
+    history = model.fit(x=train_gen, epochs=epochs, verbose=1, callbacks=callbacks,
+                        validation_data=valid_gen, validation_steps=None, shuffle=False)
+
+    # Save the trained model
+    model.save(model_save_path)
+
+    # Evaluate the model
+    test_steps = np.ceil(test_gen.samples / batch_size)
+
+    train_score = model.evaluate(train_gen, steps=test_steps, verbose=1)
+    valid_score = model.evaluate(valid_gen, steps=test_steps, verbose=1)
+    test_score = model.evaluate(test_gen, steps=test_steps, verbose=1)
+
+    print("Train Loss: ", train_score[0])
+    print("Train Accuracy: ", train_score[1])
+    print('-' * 20)
+    print("Validation Loss: ", valid_score[0])
+    print("Validation Accuracy: ", valid_score[1])
+    print('-' * 20)
+    print("Test Loss: ", test_score[0])
+    print("Test Accuracy: ", test_score[1])
+
+    return model, train_gen, valid_gen, test_gen
+
+# Call the training function and save the model
+model, train_gen, valid_gen, test_gen = train_model('/kaggle/input/eye-diseases-classification/dataset')
