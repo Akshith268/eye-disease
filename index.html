@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eye Disease Prediction</title>
+    <style>
+        /* Reset some default styles */
+        body, h1, h2, h3, p, ul {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Body styling */
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #a2c2e0, #fefbfc);
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            animation: fadeIn 2s ease-out;
+        }
+
+        /* Container styling */
+        .container {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            animation: fadeIn 2s ease-out;
+        }
+
+        /* Heading styling */
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #333; /* Changed from #4a90e2 (blue) to #333 (black) */
+        }
+
+        /* Form styling */
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* File input styling */
+        .file-input {
+            border: 2px solid #333; /* Changed from #4a90e2 to #333 */
+            border-radius: 5px;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .file-input:hover {
+            border-color: #222; /* Changed hover effect from #357abd (dark blue) to #222 (darker black) */
+        }
+
+        /* Button styling */
+        .submit-btn {
+            background: #333; /* Changed from #4a90e2 to #333 */
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            animation: bounceIn 1s;
+        }
+
+        .submit-btn:hover {
+            background: #222; /* Changed hover effect from #357abd (dark blue) to #222 (darker black) */
+        }
+
+        /* Animation keyframes */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes bounceIn {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Eye Disease Prediction</h1>
+        <form action="/" method="POST" enctype="multipart/form-data">
+            <input type="file" name="file" class="file-input">
+            <button type="submit" class="submit-btn">Predict</button>
+        </form>
+    </div>
+</body>
+</html>

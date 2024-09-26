@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Result</title>
+    <style>
+        /* Reset some default styles */
+        body, h1, h2, p, ul {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Body styling */
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #a2c2e0, #fefbfc);
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Changed from center to flex-start */
+            min-height: 100vh; /* Ensure body covers full height */
+            overflow-y: auto; /* Allow vertical scrolling */
+            animation: fadeIn 2s ease-out;
+        }
+
+        /* Container styling */
+        .container {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 80%;
+            max-width: 1200px;
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping of content if necessary */
+            align-items: flex-start;
+            animation: fadeIn 2s ease-out;
+        }
+
+        /* Left column styling */
+        .info {
+            flex: 1;
+            margin-right: 2rem;
+            min-width: 300px; /* Ensure it doesn’t get too narrow */
+        }
+
+        /* Right column styling */
+        .image-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .uploaded-image {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            max-height: 500px;
+            /* Adjust height as needed */
+        }
+
+        /* Heading styling */
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #4a90e2;
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            margin-top: 1rem;
+            color: #4a90e2;
+        }
+
+        /* Paragraph and list styling */
+        p, ul {
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        ul {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+        }
+
+        /* Button styling */
+        .back-btn {
+            display: inline-block;
+            background: #4a90e2;
+            color: #fff;
+            padding: 0.75rem 1.5rem;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+            animation: bounceIn 1s;
+        }
+
+        .back-btn:hover {
+            background: #357abd;
+        }
+
+        /* Animation keyframes */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes bounceIn {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="info">
+            <h1>Predicted Disease: {{ disease }}</h1>
+
+            <!-- Display uploaded image -->
+            <h2>Description:</h2>
+            <p>{{ details['description'] }}</p>
+
+            <h2>Symptoms:</h2>
+            <ul>
+                {% for symptom in details['symptoms'] %}
+                    <li>{{ symptom }}</li>
+                {% endfor %}
+            </ul>
+
+            <h2>Causes:</h2>
+            <ul>
+                {% for cause in details['causes'] %}
+                    <li>{{ cause }}</li>
+                {% endfor %}
+            </ul>
+
+            <h2>Treatments:</h2>
+            <ul>
+                {% for treatment in details['treatments'] %}
+                    <li>{{ treatment }}</li>
+                {% endfor %}
+            </ul>
+
+            <a href="/" class="back-btn">Predict Again</a>
+        </div>
+        <div class="image-container">
+            <img src="{{ img_url }}" alt="Uploaded Image" class="uploaded-image">
+        </div>
+    </div>
+</body>
+</html>
